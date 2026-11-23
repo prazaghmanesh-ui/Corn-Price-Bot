@@ -1,0 +1,37 @@
+name: Daily Corn Pricing
+on:
+  workflow_dispatch:
+  schedule:
+    # Asia/Tehran is UTC+03:30 (no DST). 08:30 UTC ~ 12:00 Tehran.
+    # GitHub Actions scheduled workflows may be delayed; exact-minute delivery is not guaranteed.
+    - cron: '30 8 * * *'
+permissions:
+  contents: read
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt
+      - run: python -m pytest -q
+      - name: Scrape sources, calculate and email
+        env:
+          SEND_EMAIL: '1'
+          SENDER_EMAIL: ${{ secrets.SENDER_EMAIL }}
+          RECIPIENT_EMAIL: ${{ secrets.RECIPIENT_EMAIL }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          DAMPARVAR_UNIT: IRR/kg
+          ITP_UNIT: IRR/kg
+          TELEGRAM_UNIT: IRR/kg
+          RUB_USD: '0.0123'
+        run: python main.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: daily-corn-report
+          path: output/
+          if-no-files-found: ignore
